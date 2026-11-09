@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Weekly Spending</title>
+<style>
+  :root{
+    --bg:#f3f6f4; --card:#ffffff; --text:#14231c; --muted:#6b7a72;
+    --green:#16a34a; --red:#dc2626; --accent:#0f766e; --line:#e3e9e5;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#0e1512; --card:#17211c; --text:#e8f1ec; --muted:#8fa196; --line:#25332b; }
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;font-family:system-ui,-apple-system,Roboto,sans-serif;background:var(--bg);color:var(--text);
+       padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+  .wrap{max-width:520px;margin:0 auto;padding:16px 16px 110px}
+  header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+  h1{font-size:20px;margin:0}
+  .sub{font-size:12px;color:var(--muted)}
+  .balance{background:linear-gradient(135deg,#0f766e,#16a34a);color:#fff;border-radius:20px;padding:20px;margin-bottom:12px}
+  .balance .label{font-size:13px;opacity:.85}
+  .balance .amt{font-size:32px;font-weight:700;margin:4px 0 14px;word-break:break-all}
+  .row{display:flex;gap:10px}
+  .pill{flex:1;background:rgba(255,255,255,.18);border-radius:14px;padding:10px 12px}
+  .pill small{display:block;font-size:11px;opacity:.85}
+  .pill b{font-size:15px;word-break:break-all}
+  .card{background:var(--card);border-radius:16px;padding:14px;margin-bottom:12px}
+  .card h2{font-size:14px;margin:0 0 10px;color:var(--muted);font-weight:600}
+  .item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+  .item:last-child{border-bottom:0}
+  .dot{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-weight:700;flex:none}
+  .dot.in{background:#dcfce7;color:var(--green)} .dot.out{background:#fee2e2;color:var(--red)}
+  .info{flex:1;min-width:0}
+  .info .d{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .info .t{font-size:11px;color:var(--muted)}
+  .val{font-weight:600;font-size:15px;text-align:right}
+  .val.in{color:var(--green)} .val.out{color:var(--red)}
+  .del{background:none;border:0;color:var(--muted);font-size:18px;padding:6px}
+  .empty{color:var(--muted);text-align:center;padding:18px 0;font-size:14px}
+  .bar{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);
+       padding:10px 16px calc(10px + env(safe-area-inset-bottom));display:flex;gap:10px;max-width:520px;margin:0 auto}
+  button.btn{flex:1;border:0;border-radius:14px;padding:14px;font-size:15px;font-weight:600;color:#fff}
+  .b-out{background:var(--red)} .b-in{background:var(--green)}
+  .link{background:none;border:0;color:var(--accent);font-size:14px;font-weight:600;padding:8px 0}
+  .danger{color:var(--red)}
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:flex-end;z-index:10}
+  .modal.show{display:flex}
+  .sheet{background:var(--card);width:100%;max-width:520px;margin:0 auto;border-radius:22px 22px 0 0;padding:20px 18px calc(20px + env(safe-area-inset-bottom))}
+  .sheet h3{margin:0 0 14px}
+  label{font-size:12px;color:var(--muted);display:block;margin:10px 0 4px}
+  input,select{width:100%;padding:13px;font-size:16px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--text)}
+  .actions{display:flex;gap:10px;margin-top:16px}
+  .actions button{flex:1;padding:13px;border-radius:12px;border:0;font-size:15px;font-weight:600}
+  .cancel{background:var(--line);color:var(--text)} .ok{background:var(--accent);color:#fff}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div><h1>💰 Weekly Spending</h1><div class="sub" id="weekInfo"></div></div>
+    <button class="link" id="settingsBtn">⚙ Currency</button>
+  </header>
+
+  <div class="balance">
+    <div class="label">Balance this week</div>
+    <div class="amt" id="balance">0</div>
+    <div class="row">
+      <div class="pill"><small>Income</small><b id="income">0</b></div>
+      <div class="pill"><small>Spent</small><b id="expense">0</b></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>This week's transactions</h2>
+    <div id="list"></div>
+  </div>
+
+  <div class="card">
+    <h2>Week actions</h2>
+    <button class="link danger" id="resetBtn">🔄 End week &amp; reset</button>
+  </div>
+
+  <div class="card">
+    <h2>Past weeks</h2>
+    <div id="past"></div>
+  </div>
+</div>
+
+<div class="bar">
+  <button class="btn b-out" id="addExp">− Expense</button>
+  <button class="btn b-in" id="addInc">+ Income</button>
+</div>
+
+<!-- Add transaction -->
+<div class="modal" id="txModal">
+  <div class="sheet">
+    <h3 id="txTitle">Add expense</h3>
+    <label>Amount</label>
+    <input id="txAmount" type="number" inputmode="decimal" step="any" min="0" placeholder="0.00">
+    <label>Description (optional)</label>
+    <input id="txDesc" type="text" maxlength="80" placeholder="e.g. Groceries">
+    <div class="actions">
+      <button class="cancel" id="txCancel">Cancel</button>
+      <button class="ok" id="txSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Currency -->
+<div class="modal" id="curModal">
+  <div class="sheet">
+    <h3>Choose currency</h3>
+    <select id="curSelect"></select>
+    <div class="actions">
+      <button class="cancel" id="curCancel">Cancel</button>
+      <button class="ok" id="curSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const KEY = 'weeklySpendingV1';
+const FALLBACK = ['LKR','USD','EUR','GBP','INR','JPY','AUD','CAD','CHF','CNY','SGD','AED','SAR','MYR','THB','PKR','BDT','NPR','MVR','ZAR','NZD','HKD','KRW','IDR','PHP','QAR','KWD','TRY','BRL','MXN'];
+
+let state = load();
+
+function load(){
+  try{
+    const s = JSON.parse(localStorage.getItem(KEY));
+    if(s && s.entries) return s;
+  }catch(e){}
+  return {currency:'LKR', weekStart:new Date().toISOString(), entries:[], past:[]};
+}
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){} }
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function fmt(n, cur){
+  cur = cur || state.currency;
+  try{ return new Intl.NumberFormat('en',{style:'currency',currency:cur}).format(n); }
+  catch(e){ return cur+' '+n.toFixed(2); }
+}
+const dShort = iso => new Date(iso).toLocaleDateString('en',{day:'numeric',month:'short'});
+const dTime  = iso => new Date(iso).toLocaleString('en',{day:'numeric',month:'short',hour:'numeric',minute:'2-digit'});
+
+function render(){
+  let inc=0, exp=0;
+  state.entries.forEach(e => e.type==='in' ? inc+=e.amount : exp+=e.amount);
+  $('balance').textContent = fmt(inc-exp);
+  $('income').textContent = fmt(inc);
+  $('expense').textContent = fmt(exp);
+  $('weekInfo').textContent = 'Week started ' + dShort(state.weekStart) + ' • ' + state.currency;
+
+  const list = $('list');
+  if(!state.entries.length){ list.innerHTML = '<div class="empty">No transactions yet.<br>Tap a button below to add one.</div>'; }
+  else{
+    list.innerHTML = [...state.entries].reverse().map(e => `
+      <div class="item">
+        <div class="dot ${e.type}">${e.type==='in'?'+':'−'}</div>
+        <div class="info"><div class="d">${esc(e.desc || (e.type==='in'?'Income':'Expense'))}</div><div class="t">${dTime(e.date)}</div></div>
+        <div class="val ${e.type}">${e.type==='in'?'+':'−'}${fmt(e.amount)}</div>
+        <button class="del" data-id="${e.id}" aria-label="Delete">✕</button>
+      </div>`).join('');
+  }
+
+  const past = $('past');
+  if(!state.past.length){ past.innerHTML = '<div class="empty">Finished weeks will appear here.</div>'; }
+  else{
+    past.innerHTML = [...state.past].reverse().map(w => `
+      <div class="item">
+        <div class="info"><div class="d">${dShort(w.start)} – ${dShort(w.end)}</div>
+          <div class="t">In ${fmt(w.income,w.currency)} • Spent ${fmt(w.expense,w.currency)}</div></div>
+        <div class="val ${w.income-w.expense>=0?'in':'out'}">${fmt(w.income-w.expense,w.currency)}</div>
+      </div>`).join('');
+  }
+}
+
+/* Add transaction */
+let txType = 'out';
+function openTx(type){
+  txType = type;
+  $('txTitle').textContent = type==='in' ? 'Add income' : 'Add expense';
+  $('txAmount').value=''; $('txDesc').value='';
+  $('txModal').classList.add('show');
+  setTimeout(()=>$('txAmount').focus(),100);
+}
+$('addExp').onclick = () => openTx('out');
+$('addInc').onclick = () => openTx('in');
+$('txCancel').onclick = () => $('txModal').classList.remove('show');
+$('txSave').onclick = () => {
+  const amount = parseFloat($('txAmount').value);
+  if(!(amount > 0)){ $('txAmount').focus(); return; }
+  state.entries.push({id:Date.now(), type:txType, amount, desc:$('txDesc').value.trim(), date:new Date().toISOString()});
+  save(); render(); $('txModal').classList.remove('show');
+};
+$('list').onclick = e => {
+  const b = e.target.closest('.del'); if(!b) return;
+  if(confirm('Delete this transaction?')){
+    state.entries = state.entries.filter(x => String(x.id)!==b.dataset.id);
+    save(); render();
+  }
+};
+
+/* Reset week */
+$('resetBtn').onclick = () => {
+  if(!confirm('End this week and start fresh? The totals will be saved under "Past weeks".')) return;
+  let inc=0, exp=0;
+  state.entries.forEach(e => e.type==='in' ? inc+=e.amount : exp+=e.amount);
+  if(state.entries.length){
+    state.past.push({start:state.weekStart, end:new Date().toISOString(), income:inc, expense:exp, currency:state.currency});
+    if(state.past.length>52) state.past.shift();
+  }
+  state.entries = []; state.weekStart = new Date().toISOString();
+  save(); render();
+};
+
+/* Currency */
+function currencyList(){
+  let codes = FALLBACK.slice();
+  try{ if(Intl.supportedValuesOf) codes = Intl.supportedValuesOf('currency'); }catch(e){}
+  if(!codes.includes('LKR')) codes.push('LKR');
+  let dn = null;
+  try{ dn = new Intl.DisplayNames(['en'],{type:'currency'}); }catch(e){}
+  return codes.map(c => ({code:c, name: dn ? (dn.of(c)||c) : c})).sort((a,b)=>a.name.localeCompare(b.name));
+}
+$('settingsBtn').onclick = () => {
+  const sel = $('curSelect');
+  sel.innerHTML = currencyList().map(c => `<option value="${c.code}">${esc(c.name)} (${c.code})</option>`).join('');
+  sel.value = state.currency;
+  $('curModal').classList.add('show');
+};
+$('curCancel').onclick = () => $('curModal').classList.remove('show');
+$('curSave').onclick = () => { state.currency = $('curSelect').value; save(); render(); $('curModal').classList.remove('show'); };
+
+render();
+</script>
+</body>
+</html>
