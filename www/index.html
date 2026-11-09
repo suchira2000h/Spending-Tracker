@@ -82,10 +82,6 @@
     <button class="link danger" id="resetBtn">🔄 End week &amp; reset</button>
   </div>
 
-  <div class="card">
-    <h2>Past weeks</h2>
-    <div id="past"></div>
-  </div>
 </div>
 
 <div class="bar">
@@ -165,17 +161,6 @@ function render(){
         <button class="del" data-id="${e.id}" aria-label="Delete">✕</button>
       </div>`).join('');
   }
-
-  const past = $('past');
-  if(!state.past.length){ past.innerHTML = '<div class="empty">Finished weeks will appear here.</div>'; }
-  else{
-    past.innerHTML = [...state.past].reverse().map(w => `
-      <div class="item">
-        <div class="info"><div class="d">${dShort(w.start)} – ${dShort(w.end)}</div>
-          <div class="t">In ${fmt(w.income,w.currency)} • Spent ${fmt(w.expense,w.currency)}</div></div>
-        <div class="val ${w.income-w.expense>=0?'in':'out'}">${fmt(w.income-w.expense,w.currency)}</div>
-      </div>`).join('');
-  }
 }
 
 /* Add transaction */
@@ -206,14 +191,8 @@ $('list').onclick = e => {
 
 /* Reset week */
 $('resetBtn').onclick = () => {
-  if(!confirm('End this week and start fresh? The totals will be saved under "Past weeks".')) return;
-  let inc=0, exp=0;
-  state.entries.forEach(e => e.type==='in' ? inc+=e.amount : exp+=e.amount);
-  if(state.entries.length){
-    state.past.push({start:state.weekStart, end:new Date().toISOString(), income:inc, expense:exp, currency:state.currency});
-    if(state.past.length>52) state.past.shift();
-  }
-  state.entries = []; state.weekStart = new Date().toISOString();
+  if(!confirm('End this week and reset everything? All transactions and past data will be deleted.')) return;
+  state.entries = []; state.past = []; state.weekStart = new Date().toISOString();
   save(); render();
 };
 
